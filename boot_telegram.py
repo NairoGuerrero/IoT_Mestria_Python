@@ -1,12 +1,15 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from dotenv import load_dotenv
+import os
 
+load_dotenv()  # Cargar variables del archivo .env
 
 class BotTelegram:
-    def __init__(self, publish_funtion, token="7810365350:AAHtQBz4hz8McL0ALluCsapf-qFx4LH9RYE"):
+    def __init__(self, publish_funtion):
         self.publish_function = publish_funtion
-        self.token = token
-        self.bot = telebot.TeleBot(token)
+        self.token = os.getenv("TELEGRAM_API_TOKEN")
+        self.bot = telebot.TeleBot(self.token)
         self.register_handlers()
 
     def create_inline_menu(self):
