@@ -16,6 +16,10 @@ class DatabaseManager:
         self.db_config = db_config
         self.connection = self.connect_to_db()
 
+
+
+
+
     def connect_to_db(self):
         try:
             conn = psycopg2.connect(
