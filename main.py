@@ -1,51 +1,14 @@
 import threading
-
 import paho.mqtt.client as mqtt
 import logging
-import psycopg2
-from datetime import datetime
 from boot_telegram import BotTelegram
 import json
 import time
+from data_base import DatabaseManager
+from dotenv import load_dotenv
+import os
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s", force=True)
-
-
-class DatabaseManager:
-    def __init__(self, db_config):
-        self.db_config = db_config
-        self.connection = self.connect_to_db()
-
-
-
-
-
-    def connect_to_db(self):
-        try:
-            conn = psycopg2.connect(
-                dbname=self.db_config["dbname"],
-                user=self.db_config["user"],
-                password=self.db_config["password"],
-                host=self.db_config["host"],
-                port=self.db_config["port"]
-            )
-            logging.info("Conexión a la base de datos establecida correctamente.")
-            return conn
-        except Exception as e:
-            logging.error(f"Error al conectar a la base de datos: {e}")
-            return None
-
-    def save_message(self, message):
-        if self.connection:
-            try:
-                cursor = self.connection.cursor()
-                query = 'INSERT INTO "logsESP" (fecha, mensaje) VALUES (%s, %s)'
-                cursor.execute(query, (datetime.now(), message))
-                self.connection.commit()
-                cursor.close()
-                logging.info("Mensaje guardado en la base de datos.")
-            except Exception as e:
-                logging.error(f"Error al guardar mensaje en la base de datos: {e}")
+load_dotenv()
 
 
 class MqttSubscriber:
@@ -58,7 +21,8 @@ class MqttSubscriber:
         self.client.on_message = self.on_message
         self.db_manager = db_manager
 
-        self.bot = BotTelegram(publish_function=self.publish_message)
+        self.bot = BotTelegram(publish_function=self.publish_message,
+                               db_manager=self.db_manager)
         threading.Thread(target=self.bot.start, daemon=True).start()
 
         threading.Thread(target=self.monitor_keep_alive, daemon=True).start()
@@ -99,7 +63,6 @@ class MqttSubscriber:
         message_json = json.loads(message)
         topic = msg.topic
 
-
         if message_json.get('action') == 'response_led' and topic == "NaA":
             led_status = message_json.get('dato_led', None)
             if led_status is not None:
@@ -135,8 +98,6 @@ class MqttSubscriber:
             self.db_manager.save_message(message)
 
         logging.info(f"Mensaje recibido en {topic}: {message}")
-
-
 
         # self.db_manager.save_message(message)
 
@@ -174,7 +135,7 @@ if __name__ == "__main__":
         "port": "5432"
     }
 
-    db_manager = DatabaseManager(db_config)
+    db_manager = DatabaseManager(db_config=db_config)
     mqtt_subscriber = MqttSubscriber(broker="test.mosquitto.org", port=1883, topics=["NaA", "AaN"],
                                      db_manager=db_manager)
     mqtt_subscriber.start()
